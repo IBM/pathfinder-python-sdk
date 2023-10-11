@@ -1,0 +1,11 @@
+kafka
+wheel
+setuptools
+twine
+pytest
+pytest-runner
+boto3
+pyyaml
+
+build
+
