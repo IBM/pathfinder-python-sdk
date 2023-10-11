@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ibm_pathfinder_sdk"
+version = "0.1.1"
+authors = [
+  { name="IBM", email="wci01@zurich.ibm.com" },
+]
+description = "Parthfinder connector lib package"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: OS Independent",
+    'License :: OSI Approved :: Apache Software License',
+    'Topic :: Software Development :: Libraries :: Python Modules',
+    'Topic :: Software Development :: Libraries :: Application Frameworks'
+]
+
+[project.urls]
+"Homepage" = "https://github.com/IBM/pathfinder-python-sdk"
+"Bug Tracker" = "https://github.com/IBM/pathfinder-python-sdk/issues"
+
