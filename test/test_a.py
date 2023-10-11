@@ -1,3 +1,8 @@
+"""
+// SPDX-License-Identifier: Apache-2.0
+// Copyright IBM Corp. 2023
+"""
+
 from ibm_pathfinder_sdk import pfmodelclasses
 
 def test_sample():
