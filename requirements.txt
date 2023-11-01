@@ -1,4 +1,4 @@
-kafka
+kafka-python
 wheel
 setuptools
 twine
