@@ -37,36 +37,23 @@ class ConMsgObjectBase:
     # update the state
     def updateState(self, event : pfmodelclasses.SystemEvent):
         if str(pathfinderconfig.CONNECTOR_STATE).upper() != "NONE":
-            # state update for System entity
             if isinstance(event.payload.__class__.__base__(), pfmodelclasses.SystemEntity):
-                # upsert update state only
-                if ( event.event_type == "upsert"):
-                    if event.payload.json_schema_ref not in self.connectorState["state"]:
-                        self.connectorState["state"][event.payload.json_schema_ref] = {} 
-                    self.connectorState["state"][event.payload.json_schema_ref][event.payload.edf_id] = str(uuid.uuid3(NULL_NAMESPACE, event.payload.toJSON()))
-                # delete update state and delete/last run data
-                if ( event.event_type == "delete"):
-                    if ( event.payload.json_schema_ref in self.connectorState["state"] and 
-                         event.payload.edf_id in self.connectorState["state"][event.payload.json_schema_ref] ):
-                        del self.connectorState["state"][event.payload.json_schema_ref][event.payload.edf_id]
-                    if ( event.payload.json_schema_ref in self.connectorState["delete"] and 
-                         event.payload.edf_id in self.connectorState["delete"][event.payload.json_schema_ref] ):
-                        del self.connectorState["delete"][event.payload.json_schema_ref][event.payload.edf_id]
-            # state update for System entity
+                eventId = event.payload.edf_id
             if isinstance(event.payload.__class__.__base__(), pfmodelclasses.SystemRelationship):
-                # upsert update state only
-                if ( event.event_type == "upsert"):
-                    if event.payload.json_schema_ref not in self.connectorState["state"]:
-                        self.connectorState["state"][event.payload.json_schema_ref] = {} 
-                    self.connectorState["state"][event.payload.json_schema_ref][event.payload.from_edf_id + "|" + event.payload.to_edf_id] = str(uuid.uuid3(NULL_NAMESPACE, event.payload.toJSON()))
-                # delete update state and delete/last run data
-                if ( event.event_type == "delete"):
-                    if ( event.payload.json_schema_ref in self.connectorState["state"] and 
-                         event.payload.edf_id in self.connectorState["state"][event.payload.json_schema_ref] ):
-                        del self.connectorState["state"][event.payload.json_schema_ref][event.payload.from_edf_id + "|" + event.payload.to_edf_id]   
-                    if ( event.payload.json_schema_ref in self.connectorState["delete"] and 
-                         event.payload.edf_id in self.connectorState["delete"][event.payload.json_schema_ref] ):
-                        del self.connectorState["delete"][event.payload.json_schema_ref][event.payload.from_edf_id + "|" + event.payload.to_edf_id] 
+                eventId = event.payload.from_edf_id + "|" + event.payload.to_edf_id
+            # upsert update state only
+            if ( event.event_type == "upsert"):
+                if event.payload.json_schema_ref not in self.connectorState["state"]:
+                    self.connectorState["state"][event.payload.json_schema_ref] = {} 
+                self.connectorState["state"][event.payload.json_schema_ref][eventId] = str(uuid.uuid3(NULL_NAMESPACE, event.payload.toJSON()))
+            # delete update state and delete/last run data
+            if ( event.event_type == "delete"):
+                if ( event.payload.json_schema_ref in self.connectorState["state"] and 
+                     eventId in self.connectorState["state"][event.payload.json_schema_ref] ):
+                    del self.connectorState["state"][event.payload.json_schema_ref][eventId]
+                if ( event.payload.json_schema_ref in self.connectorState["delete"] and 
+                     eventId in self.connectorState["delete"][event.payload.json_schema_ref] ):
+                    del self.connectorState["delete"][event.payload.json_schema_ref][eventId]
             return 0 
 
     # delete events which not reported anymore
@@ -144,25 +131,20 @@ class ConMsgObjectBase:
         unknowEvent = True
         if str(pathfinderconfig.CONNECTOR_STATE).upper() != "NONE" and event.event_type == "upsert":
             if isinstance(event.payload.__class__.__base__(), pfmodelclasses.SystemEntity):
-                try:
-                    if str(uuid.uuid3(NULL_NAMESPACE, event.payload.toJSON())) == self.connectorState["state"][event.payload.json_schema_ref][event.payload.edf_id]:
-                        unknowEvent = False
-                except:
-                    try:
-                        if str(uuid.uuid3(NULL_NAMESPACE, event.payload.toJSON())) == self.connectorState["delete"][event.payload.json_schema_ref][event.payload.edf_id]:
-                            unknowEvent = False
-                    except:
-                        pass
+                eventId = event.payload.edf_id
             if isinstance(event.payload.__class__.__base__(), pfmodelclasses.SystemRelationship):
+                eventId = event.payload.from_edf_id + "|" + event.payload.to_edf_id
+
+            try:
+                if str(uuid.uuid3(NULL_NAMESPACE, event.payload.toJSON())) == self.connectorState["state"][event.payload.json_schema_ref][eventId]:
+                    unknowEvent = False
+            except:
                 try:
-                    if str(uuid.uuid3(NULL_NAMESPACE, event.payload.toJSON())) == self.connectorState["state"][event.payload.json_schema_ref][event.payload.from_edf_id + "|" + event.payload.to_edf_id]:
+                    if str(uuid.uuid3(NULL_NAMESPACE, event.payload.toJSON())) == self.connectorState["delete"][event.payload.json_schema_ref][eventId]:
                         unknowEvent = False
                 except:
-                    try:
-                        if str(uuid.uuid3(NULL_NAMESPACE, event.payload.toJSON())) == self.connectorState["delete"][event.payload.json_schema_ref][event.payload.from_edf_id + "|" + event.payload.to_edf_id]:
-                            unknowEvent = False
-                    except:
-                        pass
+                    pass
+
         return unknowEvent
 
     # must be overwriten by ConMsgObjectModelRegistry or ConMsgObjectKafka
