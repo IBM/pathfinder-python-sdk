@@ -34,14 +34,17 @@ class ConMsgObjectBase:
         self.allMessages = []
         self.validSchemas = []
 
-        
+    # update the state
     def updateState(self, event : pfmodelclasses.SystemEvent):
         if str(pathfinderconfig.CONNECTOR_STATE).upper() != "NONE":
+            # state update for System entity
             if isinstance(event.payload.__class__.__base__(), pfmodelclasses.SystemEntity):
+                # upsert update state only
                 if ( event.event_type == "upsert"):
                     if event.payload.json_schema_ref not in self.connectorState["state"]:
                         self.connectorState["state"][event.payload.json_schema_ref] = {} 
                     self.connectorState["state"][event.payload.json_schema_ref][event.payload.edf_id] = str(uuid.uuid3(NULL_NAMESPACE, event.payload.toJSON()))
+                # delete update state and delete/last run data
                 if ( event.event_type == "delete"):
                     if ( event.payload.json_schema_ref in self.connectorState["state"] and 
                          event.payload.edf_id in self.connectorState["state"][event.payload.json_schema_ref] ):
@@ -49,11 +52,14 @@ class ConMsgObjectBase:
                     if ( event.payload.json_schema_ref in self.connectorState["delete"] and 
                          event.payload.edf_id in self.connectorState["delete"][event.payload.json_schema_ref] ):
                         del self.connectorState["delete"][event.payload.json_schema_ref][event.payload.edf_id]
+            # state update for System entity
             if isinstance(event.payload.__class__.__base__(), pfmodelclasses.SystemRelationship):
+                # upsert update state only
                 if ( event.event_type == "upsert"):
                     if event.payload.json_schema_ref not in self.connectorState["state"]:
                         self.connectorState["state"][event.payload.json_schema_ref] = {} 
                     self.connectorState["state"][event.payload.json_schema_ref][event.payload.from_edf_id + "|" + event.payload.to_edf_id] = str(uuid.uuid3(NULL_NAMESPACE, event.payload.toJSON()))
+                # delete update state and delete/last run data
                 if ( event.event_type == "delete"):
                     if ( event.payload.json_schema_ref in self.connectorState["state"] and 
                          event.payload.edf_id in self.connectorState["state"][event.payload.json_schema_ref] ):
@@ -63,16 +69,18 @@ class ConMsgObjectBase:
                         del self.connectorState["delete"][event.payload.json_schema_ref][event.payload.from_edf_id + "|" + event.payload.to_edf_id] 
             return 0 
 
-
+    # delete events which not reported anymore
     def deleteUnusedEvents(self, event: pfmodelclasses.SystemEvent):
         logging.info("deleteUnusedEvents")
         event.event_type = "delete"
 
+        # update the clean up data connectorState["delete"]
         for eventGroup in self.connectorState["state"]:
             for eventId in self.connectorState["state"][eventGroup]:
                 if (eventGroup in self.connectorState["delete"]) and (eventId in self.connectorState["delete"][eventGroup]): 
                     del self.connectorState["delete"][eventGroup][eventId]
 
+        # delete all events exists in the connectorState["delete"]
         for eventGroup in self.connectorState["delete"]:
             for eventId in self.connectorState["delete"][eventGroup]:
                 if "|" in eventId:
@@ -89,6 +97,7 @@ class ConMsgObjectBase:
                 self.publishEvent(event)
         return 0
 
+    # load last state of reported events
     def loadLastState(self):
         if str(pathfinderconfig.CONNECTOR_STATE).upper() == "S3":
             logging.info("Load last connector state from COS/S3 json file")
@@ -109,6 +118,7 @@ class ConMsgObjectBase:
                     self.connectorState["delete"] = json.loads(filehandle.read())
         return 0
 
+    # save last state of reported events
     def saveLastState(self):
         if str(pathfinderconfig.CONNECTOR_STATE).upper() == "S3":
             logging.info("Save connector state to COS/S3 json file")
@@ -129,6 +139,7 @@ class ConMsgObjectBase:
                 with open(pathfinderconfig.JSON_EXPORT_PATH + '/connector_export.json', 'w') as filehandle_export:
                     filehandle_export.write(json.dumps(self.allMessages))
 
+    # report events if it not reported yet
     def eventReporting(self, event : pfmodelclasses.SystemEvent):
         unknowEvent = True
         if str(pathfinderconfig.CONNECTOR_STATE).upper() != "NONE" and event.event_type == "upsert":
