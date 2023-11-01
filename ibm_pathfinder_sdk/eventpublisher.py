@@ -28,44 +28,65 @@ class NULL_NAMESPACE:
 class ConMsgObjectBase:
     def __init__(self):
         self.connectorState = {}
-        self.connectorState["delete"] = []
-        self.connectorState["state"] = []
+        self.connectorState["delete"] = {}
+        self.connectorState["state"] = {}
         self.loadLastState()
         self.allMessages = []
         self.validSchemas = []
 
+        
     def updateState(self, event : pfmodelclasses.SystemEvent):
         if str(pathfinderconfig.CONNECTOR_STATE).upper() != "NONE":
             if isinstance(event.payload.__class__.__base__(), pfmodelclasses.SystemEntity):
-            #if event.payload.__class__.__base__  == pfmodelclasses.SystemEntity:
-                self.connectorState["state"].append({"schema":event.payload.json_schema_ref,"edf_id":event.payload.edf_id})
-                if {"schema":event.payload.json_schema_ref,"edf_id":event.payload.edf_id} in self.connectorState["delete"]: 
-                    self.connectorState["delete"].remove({"schema":event.payload.json_schema_ref,"edf_id":event.payload.edf_id})
-            if isinstance(event.payload.__class__.__base__(),  pfmodelclasses.SystemRelationship): 
-            #if event.payload.__class__.__base__  == pfmodelclasses.SystemRelationship:    
-                self.connectorState["state"].append({"schema":event.payload.json_schema_ref,"from_edf_id":event.payload.from_edf_id,"to_edf_id":event.payload.to_edf_id})
-                if {"schema":event.payload.json_schema_ref,"from_edf_id":event.payload.from_edf_id,"to_edf_id":event.payload.to_edf_id} in self.connectorState["delete"]: 
-                    self.connectorState["delete"].remove({"schema":event.payload.json_schema_ref,"from_edf_id":event.payload.from_edf_id,"to_edf_id":event.payload.to_edf_id})
-            return 0    
+                if ( event.event_type == "upsert"):
+                    if event.payload.json_schema_ref not in self.connectorState["state"]:
+                        self.connectorState["state"][event.payload.json_schema_ref] = {} 
+                    self.connectorState["state"][event.payload.json_schema_ref][event.payload.edf_id] = str(uuid.uuid3(NULL_NAMESPACE, event.payload.toJSON()))
+                if ( event.event_type == "delete"):
+                    if ( event.payload.json_schema_ref in self.connectorState["state"] and 
+                         event.payload.edf_id in self.connectorState["state"][event.payload.json_schema_ref] ):
+                        del self.connectorState["state"][event.payload.json_schema_ref][event.payload.edf_id]
+                    if ( event.payload.json_schema_ref in self.connectorState["delete"] and 
+                         event.payload.edf_id in self.connectorState["delete"][event.payload.json_schema_ref] ):
+                        del self.connectorState["delete"][event.payload.json_schema_ref][event.payload.edf_id]
+            if isinstance(event.payload.__class__.__base__(), pfmodelclasses.SystemRelationship):
+                if ( event.event_type == "upsert"):
+                    if event.payload.json_schema_ref not in self.connectorState["state"]:
+                        self.connectorState["state"][event.payload.json_schema_ref] = {} 
+                    self.connectorState["state"][event.payload.json_schema_ref][event.payload.from_edf_id + "|" + event.payload.to_edf_id] = str(uuid.uuid3(NULL_NAMESPACE, event.payload.toJSON()))
+                if ( event.event_type == "delete"):
+                    if ( event.payload.json_schema_ref in self.connectorState["state"] and 
+                         event.payload.edf_id in self.connectorState["state"][event.payload.json_schema_ref] ):
+                        del self.connectorState["state"][event.payload.json_schema_ref][event.payload.from_edf_id + "|" + event.payload.to_edf_id]   
+                    if ( event.payload.json_schema_ref in self.connectorState["delete"] and 
+                         event.payload.edf_id in self.connectorState["delete"][event.payload.json_schema_ref] ):
+                        del self.connectorState["delete"][event.payload.json_schema_ref][event.payload.from_edf_id + "|" + event.payload.to_edf_id] 
+            return 0 
 
 
     def deleteUnusedEvents(self, event: pfmodelclasses.SystemEvent):
         logging.info("deleteUnusedEvents")
         event.event_type = "delete"
-        for deleteEvents in self.connectorState["delete"]:
-            if "edf_id" in deleteEvents:
-                toDelete = pfmodelclasses.SystemEntity()
-                toDelete.edf_id = deleteEvents["edf_id"]
-                toDelete.json_schema_ref = deleteEvents["schema"]
-            if "from_edf_id" in deleteEvents:
-                toDelete = pfmodelclasses.SystemRelationship()
-                toDelete.from_edf_id = deleteEvents["from_edf_id"]
-                toDelete.to_edf_id = deleteEvents["to_edf_id"]
-                toDelete.json_schema_ref = deleteEvents["schema"] 
 
-            event.payload = toDelete
-            logging.debug(event.toJSON())
-            self.publishEvent(event)
+        for eventGroup in self.connectorState["state"]:
+            for eventId in self.connectorState["state"][eventGroup]:
+                if (eventGroup in self.connectorState["delete"]) and (eventId in self.connectorState["delete"][eventGroup]): 
+                    del self.connectorState["delete"][eventGroup][eventId]
+
+        for eventGroup in self.connectorState["delete"]:
+            for eventId in self.connectorState["delete"][eventGroup]:
+                if "|" in eventId:
+                    toDelete = pfmodelclasses.SystemRelationship()
+                    toDelete.from_edf_id = str(eventId).split("|")[0]
+                    toDelete.to_edf_id = str(eventId).split("|")[1]
+                    toDelete.json_schema_ref = eventGroup 
+                else:
+                    toDelete = pfmodelclasses.SystemEntity()
+                    toDelete.edf_id = eventId
+                    toDelete.json_schema_ref = eventGroup
+                event.payload = toDelete
+                logging.debug(event.toJSON())
+                self.publishEvent(event)
         return 0
 
     def loadLastState(self):
@@ -80,7 +101,7 @@ class ConMsgObjectBase:
                 obj = s3Client.get_object(Bucket=pathfinderconfig.CONNECTOR_STATE_BUCKET, Key=connectorUuid + ".json")
                 self.connectorState["delete"] = json.loads(obj['Body'].read().decode('utf-8'))
             except:
-                self.connectorState["delete"] = []
+                self.connectorState["delete"] = {}
         else:
             logging.info("Load last connector state from json file")
             if exists(pathfinderconfig.CONNECTOR_STATE_PATH  +'/connectorstate.json'):
@@ -96,20 +117,50 @@ class ConMsgObjectBase:
                         aws_access_key_id=pathfinderconfig.CONNECTOR_STATE_AWS_ACCESS_KEY_ID,
                         aws_secret_access_key=pathfinderconfig.CONNECTOR_STATE_AWS_SECRET_ACCESS_KEY)
             connectorUuid = str(uuid.uuid3(NULL_NAMESPACE, pathfinderconfig.UNIQUE_CONNECTOR_ID))
-            s3Client.put_object(Body=json.dumps(self.allMessages), Bucket=pathfinderconfig.CONNECTOR_STATE_BUCKET, Key=connectorUuid + ".json")
+            s3Client.put_object(Body=json.dumps(self.connectorState["state"]), Bucket=pathfinderconfig.CONNECTOR_STATE_BUCKET, Key=connectorUuid + ".json")
         else:
             logging.info("Save connector state to json file")
             with open(pathfinderconfig.CONNECTOR_STATE_PATH + '/connectorstate.json', 'w') as filehandle:
                 filehandle.write(json.dumps(self.connectorState["state"]))
+
 
             if pathfinderconfig.JSON_EXPORT_ENABLED:
                 logging.info("Export published datat to json file")
                 with open(pathfinderconfig.JSON_EXPORT_PATH + '/connector_export.json', 'w') as filehandle_export:
                     filehandle_export.write(json.dumps(self.allMessages))
 
+    def eventReporting(self, event : pfmodelclasses.SystemEvent):
+        unknowEvent = True
+        if str(pathfinderconfig.CONNECTOR_STATE).upper() != "NONE" and event.event_type == "upsert":
+            if isinstance(event.payload.__class__.__base__(), pfmodelclasses.SystemEntity):
+                try:
+                    if str(uuid.uuid3(NULL_NAMESPACE, event.payload.toJSON())) == self.connectorState["state"][event.payload.json_schema_ref][event.payload.edf_id]:
+                        unknowEvent = False
+                except:
+                    try:
+                        if str(uuid.uuid3(NULL_NAMESPACE, event.payload.toJSON())) == self.connectorState["delete"][event.payload.json_schema_ref][event.payload.edf_id]:
+                            unknowEvent = False
+                    except:
+                        pass
+            if isinstance(event.payload.__class__.__base__(), pfmodelclasses.SystemRelationship):
+                try:
+                    if str(uuid.uuid3(NULL_NAMESPACE, event.payload.toJSON())) == self.connectorState["state"][event.payload.json_schema_ref][event.payload.from_edf_id + "|" + event.payload.to_edf_id]:
+                        unknowEvent = False
+                except:
+                    try:
+                        if str(uuid.uuid3(NULL_NAMESPACE, event.payload.toJSON())) == self.connectorState["delete"][event.payload.json_schema_ref][event.payload.from_edf_id + "|" + event.payload.to_edf_id]:
+                            unknowEvent = False
+                    except:
+                        pass
+        return unknowEvent
+
     # must be overwriten by ConMsgObjectModelRegistry or ConMsgObjectKafka
     def publishEvent(self, event: pfmodelclasses.SystemEvent):
-        print(event.toJSON())
+        self.allMessages.append(json.loads(event.toJSON()))
+        if self.eventReporting(event):
+            print(event.toJSON())
+            pass
+        self.updateState(event)
         return 0
 
 
@@ -256,12 +307,16 @@ class ConMsgObjectModelRegistry(ConMsgObjectBase):
         else:
             if pathfinderconfig.K8S_TOKEN_AUTH:
                 headers["Authorization"] = "SAToken " + self.getK8stoken()
-        r = requests.post(pathfinderconfig.PF_MODEL_REGISTRY_URL + "/publish/event", data=event.toJSON(), headers=headers, verify=False)
-        logging.debug(event.toJSON() + "  --> HTTP STATUS CODE " + str(r.status_code))
+
+        status_code = 200
+        if self.eventReporting(event):
+            r = requests.post(pathfinderconfig.PF_MODEL_REGISTRY_URL + "/publish/event", data=event.toJSON(), headers=headers, verify=False)
+            logging.debug(event.toJSON() + "  --> HTTP STATUS CODE " + str(r.status_code))
+            status_code = r.status_code
         self.allMessages.append(json.loads(event.toJSON()))
-        if (r.status_code == 200) and ( event.event_type == "upsert"):
+        if (status_code == 200):
             self.updateState(event)
-        if r.status_code > 201:
+        if status_code > 201:
             logging.error(event.toJSON() + "  --> HTTP STATUS CODE " + str(r.status_code))
         return r.status_code
 
@@ -311,9 +366,9 @@ class ConMsgObjectKafka(ConMsgObjectBase):
             kafkaKey.to_edf_id = event.payload.to_edf_id
         logging.debug(kafkaKey.toJSON())
         logging.debug(event.toJSON())
-        self.kafkaProducer.send(pathfinderconfig.KAFKA_TOPIC, key=bytes(kafkaKey.toJSON(), encoding="utf-8"), value=bytes(event.toJSON(), encoding="utf-8"))
-        self.kafkaProducer.flush()
-        if ( event.event_type == "upsert"):
-            self.updateState(event)
+        if self.eventReporting(event):
+            self.kafkaProducer.send(pathfinderconfig.KAFKA_TOPIC, key=bytes(kafkaKey.toJSON(), encoding="utf-8"), value=bytes(event.toJSON(), encoding="utf-8"))
+            self.kafkaProducer.flush()
+        self.updateState(event)
         return 0
 
