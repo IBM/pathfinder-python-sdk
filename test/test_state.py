@@ -1,3 +1,12 @@
+"""
+// SPDX-License-Identifier: Apache-2.0
+// Copyright IBM Corp. 2023
+"""
+
+"""
+Test SDK code functions
+
+"""
 import uuid
 import json
 from pathlib import Path
