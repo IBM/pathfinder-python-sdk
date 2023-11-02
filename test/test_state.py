@@ -11,6 +11,7 @@ import uuid
 import json
 from pathlib import Path
 import os
+import shutil
 import pytest
 # change working directory for test config/application.yaml
 os.chdir("./test")
@@ -69,7 +70,7 @@ def test_compare_state():
     
     conMsgObject =  msgObject.ConMsgObjectBase()
     connectorUuid = str(uuid.uuid3(NULL_NAMESPACE, UNIQUE_CONNECTOR_ID))
-    connectorType = "PYTHON"
+    connectorType = "PYTHON_TEST"
     event = pfmodelclasses.SystemEvent(connectorUuid, connectorType)
     
     environmentName = "Server Room 001"
@@ -130,7 +131,7 @@ def test_delete_unused():
     
     conMsgObject =  msgObject.ConMsgObjectBase()
     connectorUuid = str(uuid.uuid3(NULL_NAMESPACE, UNIQUE_CONNECTOR_ID))
-    connectorType = "PYTHON"
+    connectorType = "PYTHON_TEST"
     event = pfmodelclasses.SystemEvent(connectorUuid, connectorType)
     
     environmentName = "Server Room 001"
@@ -145,3 +146,8 @@ def test_delete_unused():
     conMsgObject.saveLastState()
     print(count)
     assert 18==count
+    
+def test_cleanUpTestDir():
+    # delete connector-state directory including the state file
+    shutil.rmtree("connector-state")
+    assert 1==1	
