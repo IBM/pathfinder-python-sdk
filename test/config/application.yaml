@@ -2,7 +2,7 @@ stopMode: stop
 
 pathfinder:
   kubernetesUrl: https://localhost:443
-  url: http://localhost:8090/mdm/api/v1
+  url: http://localhost:8090
   connector:
     state:
       type: file
