@@ -62,6 +62,7 @@ def test_compare_state():
     UNIQUE_CONNECTOR_ID = "my-connector-test01"
     PATHFINDER_CONNECTOR_STOP_SIGNAL = "GO"
     CONNECTOR_STATE_DIR = "./connector-state"
+    pathfinderconfig.CONNECTOR_STATE = "file"
     if not os.path.exists(CONNECTOR_STATE_DIR):
         os.makedirs(CONNECTOR_STATE_DIR)
     pathfinderconfig.CONNECTOR_STATE_PATH = "./connector-state"
@@ -122,6 +123,7 @@ def test_delete_unused():
     UNIQUE_CONNECTOR_ID = "my-connector-test01"
     PATHFINDER_CONNECTOR_STOP_SIGNAL = "GO"
     CONNECTOR_STATE_DIR = "./connector-state"
+    pathfinderconfig.CONNECTOR_STATE = "file"
     if not os.path.exists(CONNECTOR_STATE_DIR):
         os.makedirs(CONNECTOR_STATE_DIR)
     pathfinderconfig.CONNECTOR_STATE_PATH = "./connector-state"

@@ -36,9 +36,7 @@ class ConMsgObjectBase:
 
     # update the state
     def updateState(self, event : pfmodelclasses.SystemEvent):
-        if ( (str(pathfinderconfig.CONNECTOR_STATE).upper() != "NONE") and 
-             (str(event.payload.__class__.__name__) != "ToDeleteEntity" and 
-              str(event.payload.__class__.__name__) != "ToDeleteRelationship") ):
+        if (str(pathfinderconfig.CONNECTOR_STATE).upper() != "NONE"):
             if isinstance(event.payload.__class__.__base__(), pfmodelclasses.SystemEntity):
                 eventId = event.payload.edf_id
             if isinstance(event.payload.__class__.__base__(), pfmodelclasses.SystemRelationship): 
@@ -61,11 +59,7 @@ class ConMsgObjectBase:
     # delete events which not reported anymore
     def deleteUnusedEvents(self, event: pfmodelclasses.SystemEvent):
         logging.info("deleteUnusedEvents")
-        class ToDeleteEntity(pfmodelclasses.SystemEntity):
-            pass
-        class ToDeleteRelationship(pfmodelclasses.SystemRelationship):
-            pass
-
+        pathfinderconfig.CONNECTOR_STATE = "NONE"
         event.event_type = "delete"
         deleted = 0
 
@@ -79,12 +73,12 @@ class ConMsgObjectBase:
         for eventGroup in self.connectorState["delete"]:
             for eventId in self.connectorState["delete"][eventGroup]:
                 if "|" in eventId:
-                    toDelete = ToDeleteRelationship()
+                    toDelete = pfmodelclasses.SystemRelationship()
                     toDelete.from_edf_id = str(eventId).split("|")[0]
                     toDelete.to_edf_id = str(eventId).split("|")[1]
                     toDelete.json_schema_ref = eventGroup 
                 else:
-                    toDelete = ToDeleteEntity()
+                    toDelete = pfmodelclasses.SystemEntity()
                     toDelete.edf_id = eventId
                     toDelete.json_schema_ref = eventGroup
                 event.payload = toDelete
