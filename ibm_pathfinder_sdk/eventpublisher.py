@@ -36,10 +36,12 @@ class ConMsgObjectBase:
 
     # update the state
     def updateState(self, event : pfmodelclasses.SystemEvent):
-        if str(pathfinderconfig.CONNECTOR_STATE).upper() != "NONE":
+        if ( (str(pathfinderconfig.CONNECTOR_STATE).upper() != "NONE") and 
+             (str(event.payload.__class__.__name__) != "ToDeleteEntity" and 
+              str(event.payload.__class__.__name__) != "ToDeleteRelationship") ):
             if isinstance(event.payload.__class__.__base__(), pfmodelclasses.SystemEntity):
                 eventId = event.payload.edf_id
-            if isinstance(event.payload.__class__.__base__(), pfmodelclasses.SystemRelationship):
+            if isinstance(event.payload.__class__.__base__(), pfmodelclasses.SystemRelationship): 
                 eventId = event.payload.from_edf_id + "|" + event.payload.to_edf_id
             # upsert update state only
             if ( event.event_type == "upsert"):
@@ -54,35 +56,42 @@ class ConMsgObjectBase:
                 if ( event.payload.json_schema_ref in self.connectorState["delete"] and 
                      eventId in self.connectorState["delete"][event.payload.json_schema_ref] ):
                     del self.connectorState["delete"][event.payload.json_schema_ref][eventId]
-            return 0 
+        return 0 
 
     # delete events which not reported anymore
     def deleteUnusedEvents(self, event: pfmodelclasses.SystemEvent):
         logging.info("deleteUnusedEvents")
+        class ToDeleteEntity(pfmodelclasses.SystemEntity):
+            pass
+        class ToDeleteRelationship(pfmodelclasses.SystemRelationship):
+            pass
+
         event.event_type = "delete"
+        deleted = 0
 
         # update the clean up data connectorState["delete"]
         for eventGroup in self.connectorState["state"]:
             for eventId in self.connectorState["state"][eventGroup]:
                 if (eventGroup in self.connectorState["delete"]) and (eventId in self.connectorState["delete"][eventGroup]): 
-                    del self.connectorState["delete"][eventGroup][eventId]
+                    del self.connectorState["delete"][eventGroup][eventId]            
 
         # delete all events exists in the connectorState["delete"]
         for eventGroup in self.connectorState["delete"]:
             for eventId in self.connectorState["delete"][eventGroup]:
                 if "|" in eventId:
-                    toDelete = pfmodelclasses.SystemRelationship()
+                    toDelete = ToDeleteRelationship()
                     toDelete.from_edf_id = str(eventId).split("|")[0]
                     toDelete.to_edf_id = str(eventId).split("|")[1]
                     toDelete.json_schema_ref = eventGroup 
                 else:
-                    toDelete = pfmodelclasses.SystemEntity()
+                    toDelete = ToDeleteEntity()
                     toDelete.edf_id = eventId
                     toDelete.json_schema_ref = eventGroup
                 event.payload = toDelete
                 logging.debug(event.toJSON())
                 self.publishEvent(event)
-        return 0
+                deleted = deleted + 1
+        return deleted
 
     # load last state of reported events
     def loadLastState(self):
