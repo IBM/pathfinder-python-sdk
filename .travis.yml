@@ -11,10 +11,6 @@ matrix:
 
 cache: pip
 
-branches:
-  only:
-    - external
-
 install:
   # Install Python script dependencies
   - pip install --upgrade pip setuptools
@@ -22,3 +18,5 @@ install:
 
 script:
   - python -m pytest -v
+
+
