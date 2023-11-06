@@ -24,7 +24,7 @@ script:
   - pytest -vv
   - rm -rf dist
   - python -m build  
-  - if [[ $TRAVIS_EVENT_TYPE == "push" ]] ; then twine upload --repository testpypi  -u __token__ -p ${PYPI_TEST_TOKEN} dist/* ; fi
+  - if [[ $TRAVIS_EVENT_TYPE == "push" && $TRAVIS_BRANCH == "main" ]] ; then twine upload --repository testpypi  -u __token__ -p ${PYPI_TEST_TOKEN} dist/* ; fi
   - if [[ $TRAVIS_TAG != "" ]] ; then twine upload --repository pypi  -u __token__ -p ${PYPI_TOKEN} dist/* ; fi
 
 
