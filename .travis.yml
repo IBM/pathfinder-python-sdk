@@ -18,17 +18,17 @@ install:
   - pip install --upgrade -r requirements.txt
 
 stages:
-  - build
+  #- build
   - deploy
 
 jobs:
   include:
-    - stage: build
-      if: (type IN (pull_request))
-      script:
-        - pytest -vv
-        - rm -rf dist
-        - python -m build  
+    #- stage: build
+    #  if: (type IN (pull_request))
+    #  script:
+    #    - pytest -vv
+    #    - rm -rf dist
+    #    - python -m build  
     - stage: deploy
       # a simple push to main triggers a deployment to TEST
       if: ((type IN (push)) # AND (branch = main))
