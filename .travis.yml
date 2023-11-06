@@ -35,7 +35,7 @@ jobs:
       script:
         # set REVISION
         - export REVISION=$(awk -vFS=. -vOFS=. '{$NF++;print}' <<<$(git describe --tags --abbrev=0 | cut -c 2-))
-        - sed -ie 's|REVISION|'${REVISION}'|g' pyproject.toml
+        - sed -ie 's|0.0.0|'${REVISION}'|g' pyproject.toml
         - rm -rf dist
         - python -m build
         - twine upload --repository testpypi  -u __token__ -p ${PYPI_TEST_TOKEN} dist/*
@@ -47,7 +47,7 @@ jobs:
       if: tag =~ ^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$
       script:
         # build and push the container images
-        - sed -ie 's|REVISION|'${REVISION}'|g' pyproject.toml
+        - sed -ie 's|0.0.0|'${REVISION}'|g' pyproject.toml
         - rm -rf dist
         - python -m build
         - twine upload --repository pypi  -u __token__ -p ${PYPI_TOKEN} dist/*

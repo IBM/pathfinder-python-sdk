@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ibm_pathfinder_sdk"
-version = "REVISION"
+version = "0.0.0"
 authors = [
   { name="IBM", email="wci01@zurich.ibm.com" },
 ]
