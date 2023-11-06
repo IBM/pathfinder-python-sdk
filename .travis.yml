@@ -17,38 +17,17 @@ install:
   - pip install --upgrade pip setuptools
   - pip install --upgrade -r requirements.txt
 
-stages:
-  #- build
+
+script:
   - deploy
-
-jobs:
-  include:
-    #- stage: build
-    #  if: (type IN (pull_request))
-    #  script:
-    #    - pytest -vv
-    #    - rm -rf dist
-    #    - python -m build  
-    - stage: deploy
-      # a simple push to main triggers a deployment to TEST
-      if: ((type IN (push)) # AND (branch = main))
-      script:
-        # set REVISION
-        - export REVISION=$(awk -vFS=. -vOFS=. '{$NF++;print}' <<<$(git describe --tags --abbrev=0 | cut -c 2-))
-        - sed -ie 's|0.0.0|'${REVISION}'|g' pyproject.toml
-        - rm -rf dist
-        - python -m build
-        - twine upload --repository testpypi  -u __token__ -p ${PYPI_TEST_TOKEN} dist/*
+  - if [[ $TRAVIS_TAG == "" ]] ; then export REVISION=$(awk -vFS=. -vOFS=. '{$NF++;print}' <<<$(git describe --tags --abbrev=0 | cut -c 2-)) ; fi 
+  - sed -ie 's|0.0.0|'${REVISION}'|g' pyproject.toml
+  - pytest -vv
+  - rm -rf dist
+  - python -m build  
+  - if [[ $TRAVIS_EVENT_TYPE == "push" && $TRAVIS_BRANCH == "main" ]] ; then twine upload --repository testpypi  -u __token__ -p ${PYPI_TEST_TOKEN} dist/* ; fi
+  - if [[ $TRAVIS_TAG != "" ]] ; then twine upload --repository pypi  -u __token__ -p ${PYPI_TOKEN} dist/* ; fi
 
 
-    - stage: deploy
-      # a tag build triggers a deployment to PROD
-      # regex from semver.org
-      if: tag =~ ^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$
-      script:
-        # build and push the container images
-        - sed -ie 's|0.0.0|'${REVISION}'|g' pyproject.toml
-        - rm -rf dist
-        - python -m build
-        - twine upload --repository pypi  -u __token__ -p ${PYPI_TOKEN} dist/*
+
 
