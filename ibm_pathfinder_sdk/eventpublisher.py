@@ -36,10 +36,11 @@ class ConMsgObjectBase:
 
     # update the state
     def updateState(self, event : pfmodelclasses.SystemEvent):
-        if str(pathfinderconfig.CONNECTOR_STATE).upper() != "NONE":
-            if isinstance(event.payload.__class__.__base__(), pfmodelclasses.SystemEntity):
+        if (str(pathfinderconfig.CONNECTOR_STATE).upper() != "NONE"):
+            eventId = None
+            if (type(event.payload.__class__.__base__()).__name__ == "SystemEntity"):
                 eventId = event.payload.edf_id
-            if isinstance(event.payload.__class__.__base__(), pfmodelclasses.SystemRelationship):
+            if (type(event.payload.__class__.__base__()).__name__ == "SystemRelationship"): 
                 eventId = event.payload.from_edf_id + "|" + event.payload.to_edf_id
             # upsert update state only
             if ( event.event_type == "upsert"):
@@ -54,18 +55,20 @@ class ConMsgObjectBase:
                 if ( event.payload.json_schema_ref in self.connectorState["delete"] and 
                      eventId in self.connectorState["delete"][event.payload.json_schema_ref] ):
                     del self.connectorState["delete"][event.payload.json_schema_ref][eventId]
-            return 0 
+        return 0 
 
     # delete events which not reported anymore
     def deleteUnusedEvents(self, event: pfmodelclasses.SystemEvent):
         logging.info("deleteUnusedEvents")
+        pathfinderconfig.CONNECTOR_STATE = "NONE"
         event.event_type = "delete"
+        deleted = 0
 
         # update the clean up data connectorState["delete"]
         for eventGroup in self.connectorState["state"]:
             for eventId in self.connectorState["state"][eventGroup]:
                 if (eventGroup in self.connectorState["delete"]) and (eventId in self.connectorState["delete"][eventGroup]): 
-                    del self.connectorState["delete"][eventGroup][eventId]
+                    del self.connectorState["delete"][eventGroup][eventId]            
 
         # delete all events exists in the connectorState["delete"]
         for eventGroup in self.connectorState["delete"]:
@@ -82,7 +85,8 @@ class ConMsgObjectBase:
                 event.payload = toDelete
                 logging.debug(event.toJSON())
                 self.publishEvent(event)
-        return 0
+                deleted = deleted + 1
+        return deleted
 
     # load last state of reported events
     def loadLastState(self):
@@ -129,10 +133,11 @@ class ConMsgObjectBase:
     # report events if it not reported yet
     def eventReporting(self, event : pfmodelclasses.SystemEvent):
         unknowEvent = True
+        eventId = None
         if str(pathfinderconfig.CONNECTOR_STATE).upper() != "NONE" and event.event_type == "upsert":
-            if isinstance(event.payload.__class__.__base__(), pfmodelclasses.SystemEntity):
+            if (type(event.payload.__class__.__base__()).__name__ == "SystemEntity"):
                 eventId = event.payload.edf_id
-            if isinstance(event.payload.__class__.__base__(), pfmodelclasses.SystemRelationship):
+            if (type(event.payload.__class__.__base__()).__name__ == "SystemRelationship"):
                 eventId = event.payload.from_edf_id + "|" + event.payload.to_edf_id
 
             try:
@@ -255,9 +260,9 @@ class ConMsgObjectModelRegistry(ConMsgObjectBase):
             data["$id"] = "urn:" + groupId + ":" + schema + ":1.0.0"
             data["$schema"] = "https://json-schema.org/draft/2020-12/schema"
             data["description"] = "None"
-            if isinstance(typePayload(), pfmodelclasses.SystemEntity):
+            if (typePayload == "SystemEntity"):
                 data["description"] = schema + " entity"
-            if isinstance(typePayload(), pfmodelclasses.SystemRelationship):
+            if (typePayload == "SystemRelationship"):
                 data["description"] = "A " + schema + " relationship"
             data["type"] = "object"
             data["additionalProperties"] = True
@@ -286,11 +291,11 @@ class ConMsgObjectModelRegistry(ConMsgObjectBase):
 
 
     def publishEvent(self,event : pfmodelclasses.SystemEvent):
-        logging.info("publish event " + str(event.payload.__class__.__base__) + " schema ref " + str(event.payload.json_schema_ref))
+        logging.debug("publish event " + str(event.payload.__class__.__base__) + " schema ref " + str(event.payload.json_schema_ref))
         if (event.payload.json_schema_ref not in self.validSchemas):
             entityArray = event.payload.json_schema_ref.split(":")
             self.checkGroupIdExists(entityArray[1])
-            self.checkSchemaExists(entityArray[1], entityArray[2], event.payload.__class__.__base__)
+            self.checkSchemaExists(entityArray[1], entityArray[2], type(event.payload.__class__.__base__).__name__)
             self.validSchemas.append(event.payload.json_schema_ref)
         headers = CaseInsensitiveDict()
         headers["Accept"] = "application/json"
@@ -311,7 +316,7 @@ class ConMsgObjectModelRegistry(ConMsgObjectBase):
             self.updateState(event)
         if status_code > 201:
             logging.error(event.toJSON() + "  --> HTTP STATUS CODE " + str(r.status_code))
-        return r.status_code
+        return status_code
 
 
 class ConMsgObjectKafka(ConMsgObjectBase):
@@ -343,14 +348,14 @@ class ConMsgObjectKafka(ConMsgObjectBase):
     def publishEvent(self,event: pfmodelclasses.SystemEvent):
         kafkaKey = None
         logging.info("publish event " + str(event.payload.__class__.__base__) + " schema ref " + str(event.payload.json_schema_ref))
-        if isinstance(event.payload.__class__.__base__(),  pfmodelclasses.SystemEntity): 
+        if (type(event.payload.__class__.__base__()).__name__ == "SystemEntity"):
         #if event.payload.__class__.__base__  == pfmodelclasses.SystemEntity:
             kafkaKey = pfmodelclasses.KafkaKeyEntity()
             kafkaKey.connector_edf_id = event.connector_edf_id
             kafkaKey.json_schema_ref = event.payload.json_schema_ref
             kafkaKey.edf_id = event.payload.edf_id
 
-        if isinstance(event.payload.__class__.__base__(),  pfmodelclasses.SystemEntity):
+        if (type(event.payload.__class__.__base__()).__name__ == "SystemRelationship"):
         #if event.payload.__class__.__base__  == pfmodelclasses.SystemRelationship:
             kafkaKey = pfmodelclasses.KafkaKeyRelationship()
             kafkaKey.connector_edf_id = event.connector_edf_id

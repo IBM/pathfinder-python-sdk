@@ -1,0 +1,32 @@
+dist: jammy
+
+language: python
+
+python:
+  - "3.11"
+
+
+
+cache: pip
+
+env:
+- REVISION="${TRAVIS_TAG}" 
+
+install:
+  # Install Python script dependencies
+  - pip install --upgrade pip setuptools
+  - pip install --upgrade -r requirements.txt
+
+
+script:
+  - if [[ $TRAVIS_TAG == "" ]] ; then export REVISION=$(awk -vFS=. -vOFS=. '{$NF++;print}' <<<$(git describe --tags --abbrev=0 | cut -c 2-)) ; fi 
+  - sed -ie 's|0.0.0|'${REVISION}'|g' pyproject.toml
+  - pytest -vv
+  - rm -rf dist
+  - python -m build  
+  - if [[ $TRAVIS_EVENT_TYPE == "push" && $TRAVIS_BRANCH == "main" ]] ; then twine upload --repository testpypi  -u __token__ -p ${PYPI_TEST_TOKEN} dist/* ; fi
+  - if [[ $TRAVIS_TAG != "" ]] ; then twine upload --repository pypi  -u __token__ -p ${PYPI_TOKEN} dist/* ; fi
+
+
+
+
