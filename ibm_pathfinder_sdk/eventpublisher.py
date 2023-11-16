@@ -60,6 +60,9 @@ class ConMsgObjectBase:
     # delete events which not reported anymore
     def deleteUnusedEvents(self, event: pfmodelclasses.SystemEvent):
         logging.info("deleteUnusedEvents")
+        # backup CONNECTOR_STATE for "deleteUnusedEvents"
+        connectorState = pathfinderconfig.CONNECTOR_STATE
+        # set CONNECTOR_STATE for clan up
         pathfinderconfig.CONNECTOR_STATE = "NONE"
         event.event_type = "delete"
         deleted = 0
@@ -86,6 +89,8 @@ class ConMsgObjectBase:
                 logging.debug(event.toJSON())
                 self.publishEvent(event)
                 deleted = deleted + 1
+        # recover CONNECTOR_STATE after clan up
+        pathfinderconfig.CONNECTOR_STATE = connectorState 
         return deleted
 
     # load last state of reported events
