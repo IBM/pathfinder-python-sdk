@@ -36,10 +36,6 @@ pfmodelclasses | --Kafka key builder-- | --KafkaKeyRelationship--
 ## Prerequisites
 requirements.txt
 ```txt
-requests
-boto3
-pyyaml
-kafka-python
 ibm-pathfinder-sdk
 ```
 
