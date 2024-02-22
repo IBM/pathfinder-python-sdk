@@ -23,7 +23,7 @@ class NULL_NAMESPACE:
 
 
 
-# if therean existing class model load it like
+# if there is an existing class model load it like this:
 # from pfmodelclasses import pathfinderClass 
 
 # or create your own classes on your own model you need
@@ -66,7 +66,7 @@ def test_compare_state():
     pathfinderconfig.CONNECTOR_STATE = "file"
     if not os.path.exists(CONNECTOR_STATE_DIR):
         os.makedirs(CONNECTOR_STATE_DIR)
-    pathfinderconfig.CONNECTOR_STATE_PATH = "./connector-state"
+    pathfinderconfig.CONNECTOR_STATE_PATH = "./connector-state/connectorstate.json"
     
     conMsgObject =  msgObject.ConMsgObjectBase()
     connectorUuid = str(uuid.uuid3(NULL_NAMESPACE, UNIQUE_CONNECTOR_ID))
@@ -127,7 +127,7 @@ def test_delete_unused():
     pathfinderconfig.CONNECTOR_STATE = "file"
     if not os.path.exists(CONNECTOR_STATE_DIR):
         os.makedirs(CONNECTOR_STATE_DIR)
-    pathfinderconfig.CONNECTOR_STATE_PATH = "./connector-state"
+    pathfinderconfig.CONNECTOR_STATE_PATH = "./connector-state/connectorstate.json"
     
     conMsgObject =  msgObject.ConMsgObjectBase()
     connectorUuid = str(uuid.uuid3(NULL_NAMESPACE, UNIQUE_CONNECTOR_ID))
@@ -146,6 +146,34 @@ def test_delete_unused():
     conMsgObject.saveLastState()
     print(count)
     assert 18==count
+    
+def test_no_deletes_logmode():
+    UNIQUE_CONNECTOR_ID = "my-connector-test01"
+    PATHFINDER_CONNECTOR_STOP_SIGNAL = "GO"
+    CONNECTOR_STATE_DIR = "./connector-state"
+    pathfinderconfig.CONNECTOR_STATE = "file"
+    if not os.path.exists(CONNECTOR_STATE_DIR):
+        os.makedirs(CONNECTOR_STATE_DIR)
+    pathfinderconfig.CONNECTOR_STATE_PATH = "./connector-state/connectorstate.json"
+    pathfinderconfig.CONNECTOR_PROTOCOL_OPTIONS = pathfinderconfig.LOGMODE_OPTION
+    
+    conMsgObject =  msgObject.ConMsgObjectBase()
+    connectorUuid = str(uuid.uuid3(NULL_NAMESPACE, UNIQUE_CONNECTOR_ID))
+    connectorType = "PYTHON_TEST"
+    event = pfmodelclasses.SystemEvent(connectorUuid, connectorType)
+    
+    environmentName = "Server Room 001"
+    environemtEdfId = (str(uuid.uuid3(NULL_NAMESPACE,str(environmentName))))
+    envObj = EnvironmentTest(environemtEdfId)
+    envObj.setName(environmentName)
+    envObj.setDescription("My demo room")
+    event.payload = envObj
+    conMsgObject.publishEvent(event)
+    
+    count = conMsgObject.deleteUnusedEvents(event)
+    conMsgObject.saveLastState()
+    print(count)
+    assert 0==count
     
 def test_cleanUpTestDir():
     # delete connector-state directory including the state file
