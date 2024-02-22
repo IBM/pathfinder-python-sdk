@@ -7,8 +7,14 @@ import os
 import logging
 import yaml
 import sys
+import uuid
 
 pathfinderargs = sys.argv[1:]
+
+LOGMODE_OPTION="logmode"
+
+class NULL_NAMESPACE:
+    bytes = b''
 
 if "--env" in pathfinderargs:
     # Get all environment variables instat of value.yaml
@@ -39,13 +45,14 @@ if "--env" in pathfinderargs:
     CONNECTOR_STATE_AWS_ACCESS_KEY_ID=os.getenv('CONNECTOR_STATE_AWS_ACCESS_KEY_ID')
     CONNECTOR_STATE_AWS_SECRET_ACCESS_KEY=os.getenv('CONNECTOR_STATE_AWS_SECRET_ACCESS_KEY')
     CONNECTOR_STATE_BUCKET=os.getenv('CONNECTOR_STATE_BUCKET')
+    CONNECTOR_PROTOCOL_OPTIONS=os.getenv('CONNECTOR_PROTOCOL_OPTIONS')
 
     PATHFINDER_CONNECTOR_STOP_SIGNAL = os.getenv('PATHFINDER_CONNECTOR_STOP_SIGNAL','go')
 
     if os.getenv('CONNECTOR_STATE_PATH') is not None:
         CONNECTOR_STATE_PATH = os.getenv('CONNECTOR_STATE_PATH')
     else:
-        CONNECTOR_STATE_PATH = "/tmp"
+        CONNECTOR_STATE_PATH = "/tmp/previousState-json-" + str(uuid.uuid3(NULL_NAMESPACE, UNIQUE_CONNECTOR_ID))
 
 
     if os.getenv('JSON_EXPORT_ENABLED',"false").upper() == "TRUE": 
@@ -108,9 +115,11 @@ else:
         OIDC_CLIENT_USER = ""
         OIDC_CLIENT_USER_PASSWORD = ""
 
+    PATHFINDER_CONNECTOR_STOP_SIGNAL = os.getenv('PATHFINDER_CONNECTOR_STOP_SIGNAL')
     
     PF_MODEL_REGISTRY_URL = yamlCfg["pathfinder"]["url"]
     
+    CONNECTOR_PROTOCOL_OPTIONS=yamlCfg["pathfinder"]["connector"]["protocoloptions"] if "protocoloptions" in yamlCfg["pathfinder"]["connector"] else ""
     # connector state
     CONNECTOR_STATE=yamlCfg["pathfinder"]["connector"]["state"]["type"]
     if CONNECTOR_STATE == "s3":
@@ -118,13 +127,14 @@ else:
         CONNECTOR_STATE_AWS_ACCESS_KEY_ID=yamlCfg["pathfinder"]["connector"]["state"]["access-key"]
         CONNECTOR_STATE_AWS_SECRET_ACCESS_KEY=yamlCfg["pathfinder"]["connector"]["state"]["secret-key"]
         CONNECTOR_STATE_BUCKET=yamlCfg["pathfinder"]["connector"]["state"]["bucket-name"]
-    
-    PATHFINDER_CONNECTOR_STOP_SIGNAL = os.getenv('PATHFINDER_CONNECTOR_STOP_SIGNAL')
-
-    if CONNECTOR_STATE == "file":
-        CONNECTOR_STATE_PATH = "/opt/app-root/connectorstate"
+        CONNECTOR_STATE_PATH="previousState-json-" + str(uuid.uuid3(NULL_NAMESPACE, UNIQUE_CONNECTOR_ID))
+    elif CONNECTOR_STATE == "local":
+        if "file" in yamlCfg["pathfinder"]["connector"]["state"]:
+            CONNECTOR_STATE_PATH=yamlCfg["pathfinder"]["connector"]["state"]["file"]
+        else:
+            CONNECTOR_STATE_PATH = "/opt/app-root/connectorstate/previousState-json-" + str(uuid.uuid3(NULL_NAMESPACE, UNIQUE_CONNECTOR_ID))
     else:
-        CONNECTOR_STATE_PATH = "/tmp"
+        CONNECTOR_STATE_PATH = "/tmp/previousState-json-" + str(uuid.uuid3(NULL_NAMESPACE, UNIQUE_CONNECTOR_ID))
         
     # no json export
     JSON_EXPORT_ENABLED = False

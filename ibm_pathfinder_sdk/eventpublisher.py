@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright IBM Corp. 2023
 """
+from ibm_pathfinder_sdk.pathfinderconfig import LOGMODE_OPTION, CONNECTOR_PROTOCOL_OPTIONS
 
 """
 Publishes metadata events to kafka or Pathfinder registry-gateway (http) endpoint.
@@ -60,12 +61,15 @@ class ConMsgObjectBase:
     # delete events which not reported anymore
     def deleteUnusedEvents(self, event: pfmodelclasses.SystemEvent):
         logging.info("deleteUnusedEvents")
+        deleted = 0
+        if (LOGMODE_OPTION in CONNECTOR_PROTOCOL_OPTIONS):
+            logging.info("Log mode active, not deleting")
+            return deleted
         # backup CONNECTOR_STATE for "deleteUnusedEvents"
         connectorState = pathfinderconfig.CONNECTOR_STATE
         # set CONNECTOR_STATE for clan up
         pathfinderconfig.CONNECTOR_STATE = "NONE"
         event.event_type = "delete"
-        deleted = 0
 
         # update the clean up data connectorState["delete"]
         for eventGroup in self.connectorState["state"]:
@@ -102,15 +106,14 @@ class ConMsgObjectBase:
                         aws_access_key_id=pathfinderconfig.CONNECTOR_STATE_AWS_ACCESS_KEY_ID,
                         aws_secret_access_key=pathfinderconfig.CONNECTOR_STATE_AWS_SECRET_ACCESS_KEY)
             try:
-                connectorUuid = str(uuid.uuid3(NULL_NAMESPACE, pathfinderconfig.UNIQUE_CONNECTOR_ID))
-                obj = s3Client.get_object(Bucket=pathfinderconfig.CONNECTOR_STATE_BUCKET, Key=connectorUuid + ".json")
+                obj = s3Client.get_object(Bucket=pathfinderconfig.CONNECTOR_STATE_BUCKET, Key=pathfinderconfig.CONNECTOR_STATE_PATH)
                 self.connectorState["delete"] = json.loads(obj['Body'].read().decode('utf-8'))
             except:
                 self.connectorState["delete"] = {}
         else:
             logging.info("Load last connector state from json file")
-            if exists(pathfinderconfig.CONNECTOR_STATE_PATH  +'/connectorstate.json'):
-                with open(pathfinderconfig.CONNECTOR_STATE_PATH + '/connectorstate.json', 'r') as filehandle:
+            if exists(pathfinderconfig.CONNECTOR_STATE_PATH):
+                with open(pathfinderconfig.CONNECTOR_STATE_PATH, 'r') as filehandle:
                     self.connectorState["delete"] = json.loads(filehandle.read())
         return 0
 
@@ -122,11 +125,10 @@ class ConMsgObjectBase:
                         endpoint_url=pathfinderconfig.CONNECTOR_STATE_ENDPOINT_URL,
                         aws_access_key_id=pathfinderconfig.CONNECTOR_STATE_AWS_ACCESS_KEY_ID,
                         aws_secret_access_key=pathfinderconfig.CONNECTOR_STATE_AWS_SECRET_ACCESS_KEY)
-            connectorUuid = str(uuid.uuid3(NULL_NAMESPACE, pathfinderconfig.UNIQUE_CONNECTOR_ID))
-            s3Client.put_object(Body=json.dumps(self.connectorState["state"]), Bucket=pathfinderconfig.CONNECTOR_STATE_BUCKET, Key=connectorUuid + ".json")
+            s3Client.put_object(Body=json.dumps(self.connectorState["state"]), Bucket=pathfinderconfig.CONNECTOR_STATE_BUCKET, Key=pathfinderconfig.CONNECTOR_STATE_PATH)
         else:
             logging.info("Save connector state to json file")
-            with open(pathfinderconfig.CONNECTOR_STATE_PATH + '/connectorstate.json', 'w') as filehandle:
+            with open(pathfinderconfig.CONNECTOR_STATE_PATH, 'w') as filehandle:
                 filehandle.write(json.dumps(self.connectorState["state"]))
 
 
