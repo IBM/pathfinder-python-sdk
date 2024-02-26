@@ -111,9 +111,9 @@ else:
         KEYCLOAK_TOKEN_URL = yamlCfg["oidc"]["authServerUrl"] + "/protocol/openid-connect/token"
         OIDC_CLIENT_ID = yamlCfg["oidc"]["clientId"]
         OIDC_CLIENT_SECRET = yamlCfg["oidc"]["clientSecret"]
-        OIDC_CLIENT_GRANT_TYPE = "client_credentials"
-        OIDC_CLIENT_USER = ""
-        OIDC_CLIENT_USER_PASSWORD = ""
+        OIDC_CLIENT_USER = yamlCfg["oidc"]["userName"] if "userName" in yamlCfg["oidc"] else ""
+        OIDC_CLIENT_USER_PASSWORD = yamlCfg["oidc"]["userPassword"] if "userPassword" in yamlCfg["oidc"] else ""
+        OIDC_CLIENT_GRANT_TYPE = "password" if "userName" in yamlCfg["oidc"] else "client_credentials"
 
     PATHFINDER_CONNECTOR_STOP_SIGNAL = os.getenv('PATHFINDER_CONNECTOR_STOP_SIGNAL')
     
